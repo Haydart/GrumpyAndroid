@@ -4,16 +4,20 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.media.ImageReader;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MainActivity extends AppCompatActivity{
 
+    private ImageView grumpyImageView;
     private SensorManager sensorManager;
     private Sensor accelerometer;
     private Sensor proximityLightSensor;
@@ -28,6 +32,9 @@ public class MainActivity extends AppCompatActivity{
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        grumpyImageView = (ImageView) findViewById(R.id.grumpyAndroidImageView);
+
         soundPlayer = new SoundPlayer(this, new SoundPlayer.SoundPlayerInterface() {
             @Override
             public void OnSoundsLoaded() {
@@ -63,8 +70,8 @@ public class MainActivity extends AppCompatActivity{
         unregisterSensors();
     }
 
-    public void setGrumpinessEnabled(boolean movementDetectingEnabled) {
-        this.grumpinessModeEnabled.set(movementDetectingEnabled);
+    public void setGrumpiness(boolean flag) {
+        this.grumpinessModeEnabled.set(flag);
     }
 
     public boolean getGrumpinessModeEnabled() {
@@ -112,6 +119,7 @@ public class MainActivity extends AppCompatActivity{
     private void processLinearAcceleration(float[] sensorValues){
         if(getSummedAccelerationForce(sensorValues) > MOVEMENT_THRESHOLD + BASE_AXES_FORCE && getGrumpinessModeEnabled()){
             playRandomRantSound();
+            setGrumpyImageVisibility(true);
             muffleGrumpiness();
         }
     }
@@ -119,32 +127,38 @@ public class MainActivity extends AppCompatActivity{
     private void processProximityAndLightingDistance(float[] sensorValues){
         if(sensorValues[0] < PROXIMITY_DISTANCE_THRESHOLD && getGrumpinessModeEnabled()){
             playRandomRantSound();
+            setGrumpyImageVisibility(true);
             muffleGrumpiness();
         }
     }
 
     private void muffleGrumpiness(){
-        setGrumpinessEnabled(false);
+        setGrumpiness(false);
 
         Handler mHandler = new Handler();
         mHandler.postDelayed(new Runnable() {
-
             @Override
             public void run() {
-                setGrumpinessEnabled(true);
+                setGrumpiness(true);
             }
-
         }, 2000L);
+        mHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                setGrumpyImageVisibility(false);
+            }
+        },1500);
     }
 
     private float getSummedAccelerationForce(float[] axesForce){
-        Log.d("1", axesForce[0] + "");
-        Log.d("2", axesForce[1] + "");
-        Log.d("3", axesForce[2] + "");
         return Math.abs(axesForce[0]) + Math.abs(axesForce[1]) + Math.abs(axesForce[2]);
     }
 
     private void playRandomRantSound() {
         soundPlayer.playRandomRantSound();
+    }
+
+    private void setGrumpyImageVisibility(boolean flag){
+        grumpyImageView.setVisibility(flag?View.VISIBLE:View.INVISIBLE);
     }
 }
