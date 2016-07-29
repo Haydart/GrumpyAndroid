@@ -4,14 +4,10 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.media.AudioManager;
-import android.media.SoundPool;
 import android.os.Handler;
-import android.support.annotation.RawRes;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
-import android.util.SparseIntArray;
 import android.widget.Toast;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -20,13 +16,13 @@ public class MainActivity extends AppCompatActivity{
 
     private SensorManager sensorManager;
     private Sensor accelerometer;
-    private Sensor proximitySensor;
+    private Sensor proximityLightSensor;
     private SoundPlayer soundPlayer;
     private static float MOVEMENT_THRESHOLD = 2f;
     private static float BASE_AXES_FORCE = 8.0f;
-    private static float PROXIMITY_DISTANCE_THRESHOLD = 25f;
+    private static float PROXIMITY_DISTANCE_THRESHOLD = 20f;
 
-    private AtomicBoolean movementDetectingEnabled;
+    private AtomicBoolean grumpinessModeEnabled;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,10 +35,20 @@ public class MainActivity extends AppCompatActivity{
             }
         });
 
-        movementDetectingEnabled = new AtomicBoolean(true);
+        grumpinessModeEnabled = new AtomicBoolean(true);
         sensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
         accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        proximitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
+        proximityLightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
+        checkForSensorExistenceAndDisplayErrors();
+    }
+
+    private void checkForSensorExistenceAndDisplayErrors() {
+        if(accelerometer == null && proximityLightSensor == null)
+            Toast.makeText(MainActivity.this, "No accelerometer and light sensor! What a rubbish device!", Toast.LENGTH_SHORT).show();
+        else if(accelerometer == null)
+            Toast.makeText(MainActivity.this, "Nah, Y U NO HAVE ACCELEROMETER", Toast.LENGTH_SHORT).show();
+        else if(proximityLightSensor == null)
+            Toast.makeText(MainActivity.this, "Nah, Y U NO HAVE LIGHT SENSOR", Toast.LENGTH_SHORT).show();
     }
 
     @Override
@@ -57,31 +63,35 @@ public class MainActivity extends AppCompatActivity{
         unregisterSensors();
     }
 
-    public void setMovementDetectingEnabled(boolean movementDetectingEnabled) {
-        this.movementDetectingEnabled.set(movementDetectingEnabled);
+    public void setGrumpinessEnabled(boolean movementDetectingEnabled) {
+        this.grumpinessModeEnabled.set(movementDetectingEnabled);
     }
 
-    public boolean getMovementDetectingEnabled() {
-        return movementDetectingEnabled.get();
+    public boolean getGrumpinessModeEnabled() {
+        return grumpinessModeEnabled.get();
     }
 
     final SensorEventListener sensorEventListener = new SensorEventListener() {
         @Override
         public void onSensorChanged(SensorEvent event) {
-            final float alpha = 0.8f;
+            if(event.sensor.getType() == Sensor.TYPE_ACCELEROMETER){
+                final float alpha = 0.8f;
 
-            float[] gravity = new float[3];
-            float[] linear_acceleration = new float[3];
+                float[] gravity = new float[3];
+                float[] linear_acceleration = new float[3];
 
-            gravity[0] = alpha * gravity[0] + (1 - alpha) * event.values[0];
-            gravity[1] = alpha * gravity[1] + (1 - alpha) * event.values[1];
-            gravity[2] = alpha * gravity[2] + (1 - alpha) * event.values[2];
+                gravity[0] = alpha * gravity[0] + (1 - alpha) * event.values[0];
+                gravity[1] = alpha * gravity[1] + (1 - alpha) * event.values[1];
+                gravity[2] = alpha * gravity[2] + (1 - alpha) * event.values[2];
 
-            linear_acceleration[0] = event.values[0] - gravity[0];
-            linear_acceleration[1] = event.values[1] - gravity[1];
-            linear_acceleration[2] = event.values[2] - gravity[2];
+                linear_acceleration[0] = event.values[0] - gravity[0];
+                linear_acceleration[1] = event.values[1] - gravity[1];
+                linear_acceleration[2] = event.values[2] - gravity[2];
 
-            processLinearAcceleration(linear_acceleration);
+                processLinearAcceleration(linear_acceleration);
+            }
+            else if(event.sensor.getType() == Sensor.TYPE_LIGHT)
+                processProximityAndLightingDistance(event.values);
         }
 
         @Override
@@ -91,7 +101,7 @@ public class MainActivity extends AppCompatActivity{
     };
 
     private void registerSensors() {
-        sensorManager.registerListener(sensorEventListener,proximitySensor,SensorManager.SENSOR_DELAY_NORMAL);
+        sensorManager.registerListener(sensorEventListener, proximityLightSensor,SensorManager.SENSOR_DELAY_NORMAL);
         sensorManager.registerListener(sensorEventListener,accelerometer,SensorManager.SENSOR_DELAY_NORMAL);
     }
 
@@ -100,27 +110,37 @@ public class MainActivity extends AppCompatActivity{
     }
 
     private void processLinearAcceleration(float[] sensorValues){
-        if(getSummedAccelerationForce(sensorValues) > MOVEMENT_THRESHOLD + BASE_AXES_FORCE && getMovementDetectingEnabled()){
+        if(getSummedAccelerationForce(sensorValues) > MOVEMENT_THRESHOLD + BASE_AXES_FORCE && getGrumpinessModeEnabled()){
             playRandomRantSound();
-            setMovementDetectingEnabled(false);
-
-            Handler mHandler = new Handler();
-            mHandler.postDelayed(new Runnable() {
-
-                @Override
-                public void run() {
-                    setMovementDetectingEnabled(true);
-                }
-
-            }, 2000L);
+            muffleGrumpiness();
         }
     }
 
     private void processProximityAndLightingDistance(float[] sensorValues){
-        
+        if(sensorValues[0] < PROXIMITY_DISTANCE_THRESHOLD && getGrumpinessModeEnabled()){
+            playRandomRantSound();
+            muffleGrumpiness();
+        }
+    }
+
+    private void muffleGrumpiness(){
+        setGrumpinessEnabled(false);
+
+        Handler mHandler = new Handler();
+        mHandler.postDelayed(new Runnable() {
+
+            @Override
+            public void run() {
+                setGrumpinessEnabled(true);
+            }
+
+        }, 2000L);
     }
 
     private float getSummedAccelerationForce(float[] axesForce){
+        Log.d("1", axesForce[0] + "");
+        Log.d("2", axesForce[1] + "");
+        Log.d("3", axesForce[2] + "");
         return Math.abs(axesForce[0]) + Math.abs(axesForce[1]) + Math.abs(axesForce[2]);
     }
 
