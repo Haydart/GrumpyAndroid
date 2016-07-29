@@ -4,21 +4,27 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.media.AudioManager;
+import android.media.SoundPool;
 import android.os.Handler;
+import android.support.annotation.RawRes;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.util.SparseIntArray;
+import android.widget.Toast;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity{
 
     private SensorManager sensorManager;
     private Sensor accelerometer;
     private Sensor proximitySensor;
-
+    private SoundPlayer soundPlayer;
     private static float MOVEMENT_THRESHOLD = 2f;
     private static float BASE_AXES_FORCE = 8.0f;
+    private static float PROXIMITY_DISTANCE_THRESHOLD = 25f;
 
     private AtomicBoolean movementDetectingEnabled;
 
@@ -26,6 +32,12 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        soundPlayer = new SoundPlayer(this, new SoundPlayer.SoundPlayerInterface() {
+            @Override
+            public void OnSoundsLoaded() {
+                Toast.makeText(MainActivity.this, "Sound loaded", Toast.LENGTH_SHORT).show();
+            }
+        });
 
         movementDetectingEnabled = new AtomicBoolean(true);
         sensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
@@ -104,11 +116,15 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void processProximityAndLightingDistance(float[] sensorValues){
+        
+    }
+
     private float getSummedAccelerationForce(float[] axesForce){
         return Math.abs(axesForce[0]) + Math.abs(axesForce[1]) + Math.abs(axesForce[2]);
     }
 
     private void playRandomRantSound() {
-        Log.d("MOVEMENT", "stop moving me!");
+        soundPlayer.playRandomRantSound();
     }
 }
