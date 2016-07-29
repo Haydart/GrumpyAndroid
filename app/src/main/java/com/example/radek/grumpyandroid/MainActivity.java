@@ -13,21 +13,26 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.Toast;
-import android.os.Vibrator;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MainActivity extends AppCompatActivity{
 
     private ImageView grumpyImageView;
+    private SeekBar lightToleranceSeekBar;
+    private SeekBar motionToleranceSeekBar;
     private SensorManager sensorManager;
     private Sensor accelerometer;
     private Sensor proximityLightSensor;
     private SoundPlayer soundPlayer;
     Vibrator vibrator;
-    private static float MOVEMENT_THRESHOLD = 2f;
+    private static float DEFAULT_MOVEMENT_THRESHOLD = 2f;
+    private static float DEFAULT_LIGHT_THRESHOLD = 20f;
+    private static float MIN_MOVEMENT_THRESHOLD = .5f;
+    private static float MIN_LIGHT_THRESHOLD = 5f;
     private static float BASE_AXES_FORCE = 8.0f;
-    private static float PROXIMITY_DISTANCE_THRESHOLD = 20f;
+    private float currentMovementThreshold = DEFAULT_MOVEMENT_THRESHOLD;
+    private float currentLightThreshold = DEFAULT_LIGHT_THRESHOLD;
 
     private AtomicBoolean grumpinessModeEnabled;
 
@@ -35,8 +40,11 @@ public class MainActivity extends AppCompatActivity{
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        findReferences();
+        setListeners();
 
-        grumpyImageView = (ImageView) findViewById(R.id.grumpyAndroidImageView);
+        lightToleranceSeekBar.setMax(50);
+        motionToleranceSeekBar.setMax(5);
 
         soundPlayer = new SoundPlayer(this, new SoundPlayer.SoundPlayerInterface() {
             @Override
@@ -44,13 +52,6 @@ public class MainActivity extends AppCompatActivity{
                 Toast.makeText(MainActivity.this, "Sound loaded", Toast.LENGTH_SHORT).show();
             }
         });
-
-        vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-
-        grumpinessModeEnabled = new AtomicBoolean(true);
-        sensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
-        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        proximityLightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
         checkForSensorExistenceAndDisplayErrors();
     }
 
@@ -122,7 +123,7 @@ public class MainActivity extends AppCompatActivity{
     }
 
     private void processLinearAcceleration(float[] sensorValues){
-        if(getSummedAccelerationForce(sensorValues) > MOVEMENT_THRESHOLD + BASE_AXES_FORCE && getGrumpinessModeEnabled()){
+        if(getSummedAccelerationForce(sensorValues) > currentMovementThreshold + BASE_AXES_FORCE + MIN_MOVEMENT_THRESHOLD && getGrumpinessModeEnabled()){
             playRandomRantSoundAndVibrate();
             setGrumpyImageVisibility(true);
             muffleGrumpiness();
@@ -130,7 +131,7 @@ public class MainActivity extends AppCompatActivity{
     }
 
     private void processProximityAndLightingDistance(float[] sensorValues){
-        if(sensorValues[0] < PROXIMITY_DISTANCE_THRESHOLD && getGrumpinessModeEnabled()){
+        if(sensorValues[0] < currentLightThreshold + MIN_LIGHT_THRESHOLD && getGrumpinessModeEnabled()){
             playRandomRantSoundAndVibrate();
             setGrumpyImageVisibility(true);
             muffleGrumpiness();
@@ -167,5 +168,53 @@ public class MainActivity extends AppCompatActivity{
 
     private void setGrumpyImageVisibility(boolean flag){
         grumpyImageView.setVisibility(flag?View.VISIBLE:View.INVISIBLE);
+    }
+
+    private void setListeners() {
+        lightToleranceSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
+                currentLightThreshold = i;
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
+            }
+        });
+
+        motionToleranceSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
+                currentMovementThreshold = i;
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
+            }
+        });
+    }
+
+    private void findReferences() {
+        grumpyImageView = (ImageView) findViewById(R.id.grumpyAndroidImageView);
+        lightToleranceSeekBar = (SeekBar) findViewById(R.id.lightToleranceSeekBar);
+        motionToleranceSeekBar = (SeekBar) findViewById(R.id.motionToleranceSeekBar);
+
+        vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        grumpinessModeEnabled = new AtomicBoolean(true);
+        sensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
+        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        proximityLightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
     }
 }
